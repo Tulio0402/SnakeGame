@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using UnityEngine.SceneManagement;
 
 public class Snake : MonoBehaviour
 {
@@ -27,15 +28,12 @@ public class Snake : MonoBehaviour
         _segments = new List<Transform>();
         _segments.Add(this.transform);
         _turnPoints = new Dictionary<Vector3, TurnType>();
-        
-        ResetState();
-        /*
-        Vector3 tailPosition = this.transform.position - new Vector3(_direction.x, _direction.y, 0);
-        Transform tailSegment = Instantiate(this.tailPrefab);
-        tailSegment.position = GetRoundedPosition(tailPosition);
-        tailSegment.rotation = Quaternion.identity;
-        _segments.Add(tailSegment);
-        */
+
+        // Initail size
+        for(int i=1 ; i<this.initailSize ; i++)
+        {
+            _segments.Add(Instantiate(this.straightPrefab));
+        }
     }
 
     /// <summary>
@@ -262,30 +260,9 @@ public class Snake : MonoBehaviour
         segment.rotation = _segments[_segments.Count - 1].rotation;
 
         _segments.Add(segment);
-    }
 
-    private void ResetState()
-    {
-        // Destory all gameObject except the head
-        for(int i=1 ; i<_segments.Count ; i++)
-        {
-            Destroy(_segments[i].gameObject); 
-        }
-
-        // Clear the reference of each segement including head
-        _segments.Clear(); 
-        // Clear all the turnPoints
-        _turnPoints.Clear();
-        // Add the reference of head back
-        _segments.Add(this.transform);
-
-        for(int i=1 ; i<this.initailSize ; i++)
-        {
-            _segments.Add(Instantiate(this.straightPrefab));
-        }
-
-        // Set the head position to (0, 0, 0)
-        this.transform.position = Vector3.zero;
+        // Add a POINT when player eats an apple
+        ScoreManager.instance.AddPoint();
     }
 
     private void OnTriggerEnter2D(Collider2D other)
@@ -296,7 +273,7 @@ public class Snake : MonoBehaviour
         }
         else if(other.tag == "Wall")
         {
-            ResetState();
+            SceneManager.LoadSceneAsync("GameOverMenu");
         }
     }
 }
