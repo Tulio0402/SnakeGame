@@ -928,6 +928,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FinalScore
   scoreText: {fileID: 634876308}
+  rankText: {fileID: 396952400}
 --- !u!1 &1599808999
 GameObject:
   m_ObjectHideFlags: 0

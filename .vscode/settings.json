@@ -67,5 +67,5 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "SnakeGame.slnx"
+    "dotnet.defaultSolution": "SnakeGame - 複製.slnx"
 }

@@ -20,6 +20,12 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Signup.unity
     guid: fb60cb731634569439b440062770a909
+  - enabled: 1
+    path: Assets/Scenes/HighScore.unity
+    guid: a109f84cdf060c9468b4472676ff131b
+  - enabled: 1
+    path: Assets/Scenes/Leaderboard.unity
+    guid: 3f18b5a64868cab4282a6e6d369bfda8
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
   m_UseUCBPForAssetBundles: 0

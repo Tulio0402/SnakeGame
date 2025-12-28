@@ -1,3 +1,4 @@
+using JetBrains.Annotations;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -26,7 +27,8 @@ public class LoginManager : MonoBehaviour
 
         if (success)
         {
-            print("Successfully logged in " + user_id + "!");
+            MySQLManager.UserID = user_id;
+            print("Successfully logged in! User: " + user_id);
             await SceneManager.LoadSceneAsync("MainMenu");
         }
         else

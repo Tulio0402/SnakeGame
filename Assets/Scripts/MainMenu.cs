@@ -8,4 +8,24 @@ public class MainMenu : MonoBehaviour
         ScoreManager.score = 0;
         SceneManager.LoadSceneAsync("GameScene");
     }
+
+    public void HighScore()
+    {
+        SceneManager.LoadSceneAsync("HighScore");
+    }
+
+    public void Leaderboard()
+    {
+        SceneManager.LoadSceneAsync("Leaderboard");
+    }
+
+    public void LogOut()
+    {
+        SceneManager.LoadSceneAsync("Login");
+    }
+
+    public void Menu()
+    {
+        SceneManager.LoadSceneAsync("MainMenu");
+    }
 }
