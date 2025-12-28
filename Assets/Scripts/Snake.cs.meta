@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: b7c7fbfdcc751734db78a5e2c52dabed
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - straightPrefab: {fileID: 8250984167090991275, guid: ea2f9a9bb36c59e4a97e50a5bacf32f9, type: 3}
+  - turnUpRightPrefab: {fileID: 5414779792473188709, guid: 72ac4fcea2a65884c829e1e385071874, type: 3}
+  - turnUpLeftPrefab: {fileID: 2810910387207756351, guid: 3f78c9236f6b66146a589345d3753cfd, type: 3}
+  - turnDownRightPrefab: {fileID: 3677617815768927286, guid: 8cc643d932ee73740839ee3842ef6220, type: 3}
+  - turnDownLeftPrefab: {fileID: 8008713030252329688, guid: 9da46c6ec0dd2be4aacf058c9245ff66, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
