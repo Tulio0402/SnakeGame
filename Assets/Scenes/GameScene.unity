@@ -7724,6 +7724,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 4487545292723373972, guid: 5dd457a715516154b96b3a20bf309749, type: 3}
     - target: {fileID: -6656894951372433684, guid: bb6cb11bc5965c740961c11050e9a565, type: 3}
+      propertyPath: initialSize
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: -6656894951372433684, guid: bb6cb11bc5965c740961c11050e9a565, type: 3}
       propertyPath: segmentPrefab
       value: 
       objectReference: {fileID: 8250984167090991275, guid: ea2f9a9bb36c59e4a97e50a5bacf32f9, type: 3}

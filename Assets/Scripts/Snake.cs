@@ -4,23 +4,28 @@ using UnityEngine.SceneManagement;
 
 public class Snake : MonoBehaviour
 {
-    // Initial Snake direcion
     private Vector2 _direction = Vector2.up;
+    // 提供給 Food 腳本讀取當前方向，用來預判下一個格子
+    public Vector2 CurrentDirection => _direction;
 
-    // Snake List
-    private List<Transform> _segments;
-    // SnakeBody Types
+    private Queue<Vector2> _inputQueue = new Queue<Vector2>();
+    private bool _shouldGrow = false;
+
+    [Header("Prefabs")]
     public Transform straightPrefab;
     public Transform turnUpRightPrefab;
     public Transform turnUpLeftPrefab;
     public Transform turnDownRightPrefab;
     public Transform turnDownLeftPrefab;
     public Transform tailPrefab;
-    public int initailSize = 3;
+    
+    public int initialSize = 3;
 
-    // 8 TurnTypes
+    private List<Transform> _segments;
+    // 提供給 Food 腳本讀取全身座標，防止蘋果生成在蛇身上
+    public List<Transform> Segments => _segments;
+
     private enum TurnType { UpLeft, UpRight, DownLeft, DownRight, LeftUp, LeftDown, RightUp, RightDown }
-    // Record turnPosition
     private Dictionary<Vector3, TurnType> _turnPoints;
 
     private void Start()
@@ -29,251 +34,186 @@ public class Snake : MonoBehaviour
         _segments.Add(this.transform);
         _turnPoints = new Dictionary<Vector3, TurnType>();
 
-        // Initail size
-        for(int i=1 ; i<this.initailSize ; i++)
+        for (int i = 1; i < this.initialSize; i++)
         {
-            _segments.Add(Instantiate(this.straightPrefab));
+            Transform segment = Instantiate(this.straightPrefab);
+            segment.position = new Vector3(0, -i, 0);
+            _segments.Add(segment);
+        }
+        UpdateBodyVisuals();
+    }
+
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.W)) EnqueueInput(Vector2.up);
+        else if (Input.GetKeyDown(KeyCode.S)) EnqueueInput(Vector2.down);
+        else if (Input.GetKeyDown(KeyCode.A)) EnqueueInput(Vector2.left);
+        else if (Input.GetKeyDown(KeyCode.D)) EnqueueInput(Vector2.right);
+    }
+
+    private void EnqueueInput(Vector2 newDir)
+    {
+        if (_inputQueue.Count >= 2) return;
+        Vector2 lastQueuedDir = (_inputQueue.Count > 0) ? GetLastInQueue() : _direction;
+        if (newDir != -lastQueuedDir && newDir != lastQueuedDir)
+        {
+            _inputQueue.Enqueue(newDir);
         }
     }
 
-    /// <summary>
-    /// Update is called every frame, if the MonoBehaviour is enabled.
-    /// </summary>
-    private void Update()
+    private Vector2 GetLastInQueue()
     {
-        // Record current direction
+        Vector2[] array = _inputQueue.ToArray();
+        return array[array.Length - 1];
+    }
+
+    private void FixedUpdate()
+    {
         Vector2 prevDirection = _direction;
+        
+        if (_inputQueue.Count > 0)
+        {
+            _direction = _inputQueue.Dequeue();
+            UpdateHeadRotation();
 
-        // Update direction if Player press a movement key(W, A, S, D)
-        if (Input.GetKeyDown(KeyCode.W) && _direction != Vector2.down)
-        {
-            _direction = Vector2.up;
-            transform.rotation = Quaternion.Euler(0, 0, 0);
-        }
-        else if (Input.GetKeyDown(KeyCode.S) && _direction != Vector2.up)
-        {
-            _direction = Vector2.down;
-            transform.rotation = Quaternion.Euler(0, 0, 180);
-        }
-        else if (Input.GetKeyDown(KeyCode.A) && _direction != Vector2.right)
-        {
-            _direction = Vector2.left;
-            transform.rotation = Quaternion.Euler(0, 0, 90);
-        }
-        else if (Input.GetKeyDown(KeyCode.D) && _direction != Vector2.left)
-        {
-            _direction = Vector2.right;
-            transform.rotation = Quaternion.Euler(0, 0, -90);
-        }
-
-        // If the Snake makes a turn
-        if (_direction != prevDirection)
-        {
             Vector3 turnPosition = GetRoundedPosition(this.transform.position);
             TurnType newTurn = GetTurnType(prevDirection, _direction);
-
-            // Check if this turnPosistion is already in the Dictionary
-            if (!_turnPoints.ContainsKey(turnPosition))
-            {
+            
+            if (!_turnPoints.ContainsKey(turnPosition)) {
                 _turnPoints.Add(turnPosition, newTurn);
             }
         }
-    }
 
-    /// <summary>
-    /// This function is called every fixed framerate frame, if the MonoBehaviour is enabled.
-    /// </summary>
-    private void FixedUpdate()
-    {
-        // Record SnakeTail position to clear turnPoints
-        Vector3 tailPosition = GetRoundedPosition(_segments[_segments.Count - 1].position);
+        Vector3 oldTailPos = _segments[_segments.Count - 1].position;
 
-        // Making Snake's head, body and tail connected
         for (int i = _segments.Count - 1; i > 0; i--)
         {
             _segments[i].position = _segments[i - 1].position;
         }
 
-        // SnakeHead movement
+        // 移動蛇頭
         this.transform.position = new Vector3(
             Mathf.Round(this.transform.position.x) + _direction.x,
             Mathf.Round(this.transform.position.y) + _direction.y,
             0.0f
         );
 
-        UpdateBodyPrefabs();
+        // --- 核心改進：主動檢查碰撞，解決「穿過蘋果」問題 ---
+        CheckForFoodManually();
 
-        // Clear the turnPoint if it is at tailPosition
-        if (_turnPoints.ContainsKey(tailPosition))
+        if (_shouldGrow)
         {
-            _turnPoints.Remove(tailPosition);
+            Transform newSegment = Instantiate(straightPrefab);
+            newSegment.position = oldTailPos; 
+            _segments.Add(newSegment);
+            _shouldGrow = false;
+        }
+
+        UpdateBodyVisuals();
+
+        Vector3 currentTailPos = GetRoundedPosition(_segments[_segments.Count - 1].position);
+        if (_turnPoints.ContainsKey(currentTailPos))
+        {
+            _turnPoints.Remove(currentTailPos);
         }
     }
 
-    private void UpdateBodyPrefabs()
+    private void CheckForFoodManually()
     {
-        // Updating from the first SnakeBody
-        for (int i = 1; i < _segments.Count ; i++)
+        // 檢查蛇頭所在位置是否有標記為 Food 的物件
+        Collider2D hit = Physics2D.OverlapCircle(transform.position, 0.1f);
+        if (hit != null && hit.CompareTag("Food"))
+        {
+            Grow();
+            // 找到 Food 組件並強制它立刻換位置
+            Food food = hit.GetComponent<Food>();
+            if (food != null) food.RandomizePosition();
+        }
+    }
+
+    private void UpdateHeadRotation()
+    {
+        float angle = (_direction == Vector2.up) ? 0 : (_direction == Vector2.down) ? 180 : (_direction == Vector2.left) ? 90 : -90;
+        transform.rotation = Quaternion.Euler(0, 0, angle);
+    }
+
+    private void UpdateBodyVisuals()
+    {
+        for (int i = 1; i < _segments.Count; i++)
         {
             Transform segment = _segments[i];
             Vector3 currentPos = GetRoundedPosition(segment.position);
+            bool isTail = (i == _segments.Count - 1);
 
-            // At turnPoint but not at tail
-            if (_turnPoints.ContainsKey(currentPos) && currentPos != _segments[_segments.Count - 1].position)
+            if (!isTail && _turnPoints.ContainsKey(currentPos))
             {
-                // Using the currentPos to get the TurnType from the Dictionary
                 TurnType turn = _turnPoints[currentPos];
-                // Using the TurnType to get the correct turnPrefab
                 Transform turnPrefab = GetTurnPrefab(turn);
-
-                // Check if the name of the current segment is turn...Prefab
-                if (segment.name != turnPrefab.name + "(Clone)") // p.s. Instantiate Prefab will add "(Clone)" behind its name
-                {
-                    ReplaceSegment(i, turnPrefab, currentPos);
-                }
+                if (segment.name != turnPrefab.name + "(Clone)") ReplaceSegment(i, turnPrefab, currentPos);
             }
-            // At straight or at tail
             else
-            {   
-                // Check if the currentPos is tailPos
-                if (currentPos == _segments[_segments.Count - 1].position)
-                {
-                    ReplaceSegment(i, tailPrefab, currentPos);
-                    segment = _segments[i];
-                }
-                // Check if the name of the current segment is straightPrefab
-                else if (segment.name != straightPrefab.name + "(Clone)")
-                {
-                    ReplaceSegment(i, straightPrefab, currentPos);
-                    segment = _segments[i];
-                }
-                
-                // Direction is determined by comparing the currentPos with the prevPos
-                Vector3 prevPos = GetRoundedPosition(_segments[i - 1].position);
-
-                // Going right side
-                if (currentPos.x - prevPos.x < 0)
-                {
-                    segment.rotation = Quaternion.Euler(0, 0, -90);
-                }
-                // Going left side
-                else if (currentPos.x - prevPos.x > 0)
-                {
-                    segment.rotation = Quaternion.Euler(0, 0, 90);
-                }
-                // Going upward
-                else if (currentPos.y - prevPos.y < 0)
-                {
-                    segment.rotation = Quaternion.Euler(0, 0, 0);
-                }
-                // Going downward
-                else if (currentPos.y - prevPos.y > 0)
-                {
-                    segment.rotation = Quaternion.Euler(0, 0, 180);
-                }
+            {
+                Transform targetPrefab = isTail ? tailPrefab : straightPrefab;
+                if (segment.name != targetPrefab.name + "(Clone)") ReplaceSegment(i, targetPrefab, currentPos);
+                UpdateSegmentRotation(i);
             }
         }
     }
 
-    // Round the turnPosistion(x, y, z)
-    private Vector3 GetRoundedPosition(Vector3 position)
-    {
-        return new Vector3(
-            Mathf.Round(position.x),
-            Mathf.Round(position.y),
-            position.z
-        );
-    }
-
-    // Decide the TurnType
-    private TurnType GetTurnType(Vector2 prevDirection, Vector2 nextDirection)
-    {
-        if (prevDirection == Vector2.up)
-        {
-            if (nextDirection == Vector2.left) return TurnType.UpLeft;
-            if (nextDirection == Vector2.right) return TurnType.UpRight;
-        }
-        else if (prevDirection == Vector2.down)
-        {
-            if (nextDirection == Vector2.left) return TurnType.DownLeft;
-            if (nextDirection == Vector2.right) return TurnType.DownRight;
-        }
-        else if (prevDirection == Vector2.left)
-        {
-            if (nextDirection == Vector2.up) return TurnType.LeftUp;
-            if (nextDirection == Vector2.down) return TurnType.LeftDown;
-        }
-        else if (prevDirection == Vector2.right)
-        {
-            if (nextDirection == Vector2.up) return TurnType.RightUp;
-            if (nextDirection == Vector2.down) return TurnType.RightDown;
-        }
-        // Default return
-        return TurnType.UpRight;
-    }
-
-    // Get the corresponding turnPrefab based on TurnType
-    private Transform GetTurnPrefab(TurnType turn)
-    {
-        if (turn == TurnType.UpRight || turn == TurnType.LeftDown)
-        {
-            return turnUpRightPrefab;
-        }
-        else if (turn == TurnType.UpLeft || turn == TurnType.RightDown)
-        {
-            return turnUpLeftPrefab;
-        }
-        else if (turn == TurnType.DownRight || turn == TurnType.LeftUp)
-        {
-            return turnDownRightPrefab;
-        }
-        else if (turn == TurnType.DownLeft || turn == TurnType.RightUp)
-        {
-            return turnDownLeftPrefab;
-        }
-        else
-        {
-            return turnUpRightPrefab;
-        }
-    }
-
-
-    // Replace old Prefab with new one, and update _segments list
     private void ReplaceSegment(int index, Transform newPrefab, Vector3 position)
     {
-        // Destroy old Prefab
         Destroy(_segments[index].gameObject);
-
-        // Instantiate new Prefab
-        Transform segment = Instantiate(newPrefab);
-        segment.position = position;
-        segment.rotation = Quaternion.identity; // Quaternion.identity == rotation(0,0,0)
-        
-        // Update the _segments list
-        _segments[index] = segment;
+        Transform newSegment = Instantiate(newPrefab);
+        newSegment.position = position;
+        _segments[index] = newSegment;
     }
 
-    private void Grow()
+    private void UpdateSegmentRotation(int index)
     {
-        Transform segment = Instantiate(this.straightPrefab);
-        segment.position = _segments[_segments.Count - 1].position;
-        segment.rotation = _segments[_segments.Count - 1].rotation;
+        Transform segment = _segments[index];
+        Vector3 currentPos = GetRoundedPosition(segment.position);
+        Vector3 prevPos = GetRoundedPosition(_segments[index - 1].position);
+        Vector3 diff = prevPos - currentPos;
 
-        _segments.Add(segment);
+        if (diff.x > 0.5f) segment.rotation = Quaternion.Euler(0, 0, -90);
+        else if (diff.x < -0.5f) segment.rotation = Quaternion.Euler(0, 0, 90);
+        else if (diff.y > 0.5f) segment.rotation = Quaternion.Euler(0, 0, 0);
+        else if (diff.y < -0.5f) segment.rotation = Quaternion.Euler(0, 0, 180);
+    }
 
-        // Add a POINT when player eats an apple
-        ScoreManager.instance.AddPoint();
+    private Vector3 GetRoundedPosition(Vector3 position) => new Vector3(Mathf.Round(position.x), Mathf.Round(position.y), 0);
+
+    private TurnType GetTurnType(Vector2 prev, Vector2 next)
+    {
+        if (prev == Vector2.up) return next == Vector2.left ? TurnType.UpLeft : TurnType.UpRight;
+        if (prev == Vector2.down) return next == Vector2.left ? TurnType.DownLeft : TurnType.DownRight;
+        if (prev == Vector2.left) return next == Vector2.up ? TurnType.LeftUp : TurnType.LeftDown;
+        return next == Vector2.up ? TurnType.RightUp : TurnType.RightDown;
+    }
+
+    private Transform GetTurnPrefab(TurnType turn)
+    {
+        switch (turn) {
+            case TurnType.UpRight: case TurnType.LeftDown: return turnUpRightPrefab;
+            case TurnType.UpLeft: case TurnType.RightDown: return turnUpLeftPrefab;
+            case TurnType.DownRight: case TurnType.LeftUp: return turnDownRightPrefab;
+            case TurnType.DownLeft: case TurnType.RightUp: return turnDownLeftPrefab;
+            default: return turnUpRightPrefab;
+        }
+    }
+
+    public void Grow()
+    {
+        _shouldGrow = true;
+        if (ScoreManager.instance != null) ScoreManager.instance.AddPoint();
     }
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (other.tag == "Food")
+        if (other.CompareTag("Food")) Grow();
+        else if (other.CompareTag("Wall") || other.CompareTag("Body"))
         {
-            Grow();
-        }
-        else if(other.tag == "Wall")
-        {
-            SceneManager.LoadSceneAsync("GameOverMenu");
+            SceneManager.LoadScene("GameOverMenu");
         }
     }
 }

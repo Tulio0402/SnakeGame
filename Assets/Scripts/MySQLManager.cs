@@ -7,7 +7,7 @@ static class MySQLManager
 {
     public static string UserID;
 
-    readonly static string SERVER_URL = "localhost:80/SnakeGame_user_db";
+    readonly static string SERVER_URL = "http://127.0.0.1/SnakeGame_user_db";
 
     public static async Task<bool> RegisterUser(string email, string user_id, string password)
     {

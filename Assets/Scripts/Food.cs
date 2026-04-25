@@ -1,36 +1,65 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class Food : MonoBehaviour
 {
     public BoxCollider2D gridArea;
+    private Snake snakeScript;
 
-    /// <summary>
-    /// Start is called on the frame when a script is enabled just before
-    /// any of the Update methods is called the first time.
-    /// </summary>
     private void Start()
     {
+        // 尋找蛇的組件
+        snakeScript = FindFirstObjectByType<Snake>();
         RandomizePosition();
     }
 
-    private void RandomizePosition()
+    // 將此改為 public，讓 Snake 腳本在手動碰撞時可以呼叫
+    public void RandomizePosition()
     {
         Bounds bounds = this.gridArea.bounds;
+        Vector3 newPosition;
+        bool isInvalid;
+        int safetyNet = 0;
 
-        float x = Random.Range(bounds.min.x, bounds.max.x);
-        float y = Random.Range(bounds.min.y, bounds.max.y);
+        do
+        {
+            isInvalid = false;
+            float x = Random.Range(bounds.min.x, bounds.max.x);
+            float y = Random.Range(bounds.min.y, bounds.max.y);
+            newPosition = new Vector3(Mathf.Round(x), Mathf.Round(y), 0.0f);
 
-        this.transform.position = new Vector3(Mathf.Round(x), Mathf.Round(y), 0.0f);
+            if (snakeScript != null)
+            {
+                // 1. 檢查是否在蛇身上
+                foreach (Transform segment in snakeScript.Segments)
+                {
+                    if (Vector3.Distance(segment.position, newPosition) < 0.1f)
+                    {
+                        isInvalid = true;
+                        break;
+                    }
+                }
+
+                // 2. 核心改進：檢查是否在蛇頭「下一步」的位置，防止蘋果瞬間出現在正前方導致穿過
+                Vector3 nextHeadPos = snakeScript.transform.position + (Vector3)snakeScript.CurrentDirection;
+                if (Vector3.Distance(nextHeadPos, newPosition) < 0.1f)
+                {
+                    isInvalid = true;
+                }
+            }
+
+            safetyNet++;
+            // 安全機制，防止死循環
+            if (safetyNet > 100) break;
+
+        } while (isInvalid);
+
+        this.transform.position = newPosition;
     }
-    
-    /// <summary>
-    /// Sent when another object enters a trigger collider attached to this
-    /// object (2D physics only).
-    /// </summary>
-    /// <param name="other">The other Collider2D involved in this collision.</param>
+
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (other.tag == "Player")
+        if (other.CompareTag("Player"))
         {
             RandomizePosition();
         }
